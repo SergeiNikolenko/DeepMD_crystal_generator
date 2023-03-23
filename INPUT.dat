@@ -1,0 +1,31 @@
+%molecules
+#MOL
+MOL_1.dat  2
+MOL_2.dat  1
+MOL_3.dat  2
+%end
+
+%best structures
+Nbest  4
+Nframe 100
+seed  51226645
+gen  b2
+%end
+
+%elements 
+C	12.00
+H	1.00784
+O	15.999
+N   14.0067
+S   32.065
+Cl  35.453
+%end
+
+%ediff
+ediff  0.01
+%end
+
+%prefix
+prefix_in  Startmol
+prefix_out Result1
+%end

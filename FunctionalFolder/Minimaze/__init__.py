@@ -1,0 +1,1 @@
+from FunctionalFolder.Minimaze.minimaze import *
