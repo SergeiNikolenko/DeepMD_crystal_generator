@@ -6,3 +6,5 @@ Result/
 __pycache__
 .vscode
 .dependencygraph
+*.in
+*.out
