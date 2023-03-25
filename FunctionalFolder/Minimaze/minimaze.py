@@ -1,81 +1,73 @@
-from lammps import PyLammps
-import FunctionalFolder.Output as Output
-
-# Убрать лишний вывод в терминале 
 import os
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
-import tensorflow as tf
-tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
-
 from ase import Atoms
-from deepmd.calculator import DP
 from ase.optimize import BFGS
 from ase.io import read
-from ase.io.vasp import write_vasp
+from ase.io.vasp import write_vasp, read_vasp
 from ase.constraints import UnitCellFilter
+from ase.calculators.espresso import Espresso
 
-
-def check_structure(structure, count_structures, Nbest, pe_str, ediff, prefix_out):
-
-     name_structure = structure
-     #print(name_structure)
-
-     structure = Atoms(read(name_structure), pbc=True, calculator=DP(model="./Specific/graph_mod5.pb"))
-  
-     uf = UnitCellFilter(structure)
-     relax = BFGS(uf, logfile = 'min.log')
-     relax.run(fmax=ediff)
-
-     pe = structure.get_potential_energy()
+def check_structure_QE2(structure_path, count_structures, Nbest, pe_str, ediff, prefix_out):
     
-     if count_structures <= Nbest:
-          name_structure = name_structure.split('/')[-1]
-          pe_str[str(name_structure)] = float(pe)
-          coord = structure.get_positions()
-          box = structure.get_cell()
+    # Считываем структуру из файла POSCAR
+    structure = read_vasp(structure_path)
+    
+    # Настройка калькулятора
+    pseudo_path = os.path.abspath('Specific/pseudo')
+    outdir = prefix_out 
+    pseudopotentials = {'C': 'C.UPF',
+                        'H': 'H.UPF',
+                        'N': 'N.UPF',
+                        'O': 'O.UPF',
+                        'S': 'S.UPF'}
 
-          card = structure.get_chemical_symbols()
+    calc = Espresso(pseudopotentials=pseudopotentials,
+                    pseudo_dir=pseudo_path,
+                    input_data={
+                         'control': {
+                             'calculation': 'vc-relax',
+                             'restart_mode': 'from_scratch',
+                             'verbosity': 'high',
+                         },
+                         'system': {
+                             'ecutwfc': 30,
+                             'ecutrho': 60,
+                         },
+                         'electrons': {
+                             'conv_thr': 0.01,
+                         },
+                    })
 
-          elem_card = get_ase_elem_card(card)
-          
-          structure_new = Atoms(elem_card, positions = coord, cell = box)
-          write_vasp('./Result/' + prefix_out + '/' + name_structure, structure_new)
-          
-     else:
-          pe_str = dict(sorted(pe_str.items(), key=lambda item: item[1]))
-        
-          keys_list = list(pe_str.keys())
-          key_max_energy = keys_list[-1]
-          pe_max = pe_str[str(key_max_energy)]
-        
-          if pe < pe_max:
-               del pe_str[str(key_max_energy)]
+    # Устанавливаем калькулятор для объекта Atoms
+    structure.set_calculator(calc)
 
-               name_structure = name_structure.split('/')[-1]
-               pe_str[str(name_structure)] = float(pe)
+    uf = UnitCellFilter(structure)
+    # Оптимизируем структуру
+    relax = BFGS(uf, logfile='min.log')
+    relax.run(fmax=ediff)
 
-               coord = structure.get_positions()
-               box = structure.get_cell()
-               card = structure.get_chemical_symbols()
-               elem_card = get_ase_elem_card(card)
-               structure_new = Atoms(elem_card, positions = coord, cell = box)
-               write_vasp('./Result/' + prefix_out + '/' + name_structure, structure_new)
+    # Получаем потенциальную энергию
+    pe = structure.get_potential_energy()
 
-     return (pe_str)
+    if count_structures <= Nbest:
+        # Добавляем структуру в список лучших структур
+        name_structure = structure_path.split('/')[-1]
+        pe_str[name_structure] = float(pe)
 
-def get_ase_elem_card(card):
+        # Записываем структуру в файл в формате VASP
+        write_vasp(prefix_out + '/' + name_structure, structure)
+    else:
+        # Заменяем структуру с наибольшей потенциальной энергией, если текущая энергия меньше
+        pe_str = dict(sorted(pe_str.items(), key=lambda item: item[1]))
+        keys_list = list(pe_str.keys())
+        key_max_energy = keys_list[-1]
+        pe_max = pe_str[key_max_energy]
 
-     card_dict ={}
-     for i in card:
-          if i in card_dict:
-               card_dict[i] += 1
-          else:
-               card_dict[i] = 1
+        if pe < pe_max:
+            del pe_str[key_max_energy]
 
-     card_ase = list(card_dict.items())
+            name_structure = structure_path.split('/')[-1]
+            pe_str[name_structure] = float(pe)
 
-     card = ''
-     for i in range(len(card_ase)):
-          card+=str(card_ase[i][0]) + str(card_ase[i][1])
+            write_vasp(prefix_out + '/' + name_structure, structure)
 
-     return card
+    return pe_str

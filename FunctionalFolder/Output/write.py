@@ -115,4 +115,38 @@ def remove_files(pe_str, path_remove, prefix_out):
             file_remove = '/Result/' + prefix_out + '/' + i 
             path_del =  path_remove + file_remove
             os.remove(path_del)
+
+def convert_vasp_to_qe(path_to_vasp_files):
+    
+    import os
+    from ase.io import read, write
+    
+    # Преобразование файлов
+    for file_name in os.listdir(path_to_vasp_files):
+        if file_name.endswith(".vasp"):
+            # Загрузка структуры из VASP файла
+            atoms = read(os.path.join(path_to_vasp_files, file_name))
+
+            # Сохранение структуры в формате QE в новом файле
+            write(os.path.join(path_to_vasp_files, file_name.replace(".vasp", ".in")), atoms, format="espresso-in")
             
+            # Удаление файла VASP
+            os.remove(os.path.join(path_to_vasp_files, file_name))
+            
+
+    # Получить список файлов с расширением ".in"
+    files = [f for f in os.listdir(path_to_vasp_files) if f.endswith('.in')]
+    print(files)
+    # Применить код к каждому файлу
+    for filename in files:
+        with open(os.path.join(path_to_vasp_files, filename), "r") as f:
+            lines = f.readlines()
+        for i, line in enumerate(lines):
+            if 'K_POINTS gamma' in line:
+                lines = lines[i + 1:]
+                break
+        with open(os.path.join(path_to_vasp_files, filename), "w") as f:
+            f.writelines(lines)
+
+    print("Конвертация файлов завершена")
+
