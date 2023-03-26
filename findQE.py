@@ -7,9 +7,6 @@ try:
     import FunctionalFolder.Output as Output
     import FunctionalFolder.Input as Input
 
-    # Чистим min.log 
-    with open("min.log", "w") as log_file:
-        log_file.write("")
 
     rnd.seed()
 
@@ -43,7 +40,7 @@ try:
     for name_structure in in_structures:
         count_structures += 1
         
-        pe_str = Minimaze.check_structure_QE2(name_structure, count_structures, Nbest, pe_str, ediff, prefix_out)
+        pe_str = Minimaze.check_structure_QE(name_structure, count_structures, Nbest, pe_str, ediff, prefix_out)
         print(name_structure, count_structures, Nbest, pe_str, ediff, prefix_out)
         # Запись результатов и удаление старых файлов через каждые Nframe структур
         if count_structures % Nframe == 0:

@@ -6,36 +6,47 @@ from ase.io.vasp import write_vasp, read_vasp
 from ase.constraints import UnitCellFilter
 from ase.calculators.espresso import Espresso
 
-def check_structure_QE2(structure_path, count_structures, Nbest, pe_str, ediff, prefix_out):
+def check_structure_QE(structure_path, count_structures, Nbest, pe_str, ediff, prefix_out):
     
     # Считываем структуру из файла POSCAR
     structure = read_vasp(structure_path)
     
     # Настройка калькулятора
-    pseudo_path = os.path.abspath('Specific/pseudo')
-    outdir = prefix_out 
+    pseudo_path = os.path.abspath('Specific/pseudo') 
     pseudopotentials = {'C': 'C.UPF',
                         'H': 'H.UPF',
                         'N': 'N.UPF',
                         'O': 'O.UPF',
                         'S': 'S.UPF'}
-
+    input_data={
+                        'control': {
+                            'calculation': 'vc-relax',
+                            'restart_mode': 'from_scratch',
+                            'verbosity': 'high',
+                            'prefix': 'qe',
+                            'tprnfor': True,
+                            'tstress': True,
+                        },
+                        'system': {
+                            'ecutwfc': 10,
+                            'ecutrho': 40,
+                        },
+                        'electrons': {
+                            'conv_thr': ediff,
+                        },
+                        'ions': {
+                            'ion_dynamics': 'bfgs',
+                        },
+                        'k_points': {
+                            'generation': 'monkhorst-pack',
+                            'gamma': False,
+                            'kpoints': [2, 2, 2],
+                        },
+                    }
     calc = Espresso(pseudopotentials=pseudopotentials,
                     pseudo_dir=pseudo_path,
-                    input_data={
-                         'control': {
-                             'calculation': 'vc-relax',
-                             'restart_mode': 'from_scratch',
-                             'verbosity': 'high',
-                         },
-                         'system': {
-                             'ecutwfc': 30,
-                             'ecutrho': 60,
-                         },
-                         'electrons': {
-                             'conv_thr': 0.01,
-                         },
-                    })
+                    input_data=input_data)
+ 
 
     # Устанавливаем калькулятор для объекта Atoms
     structure.set_calculator(calc)
